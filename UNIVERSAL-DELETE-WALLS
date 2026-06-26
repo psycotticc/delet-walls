@@ -1,27 +1,29 @@
--- // dw v1 - Delete Walls + Anti AFK + Key System
+-- // dw v1 - Chikobeso DW | Delete + Anti AFK (Vinculado por User ID)
 
 if not localscriptkey then
     game.Players.LocalPlayer:Kick("Esta key es incorrecta.")
     return
 end
 
--- ==================== KEYS DESDE PASTEBIN ====================
-local success, ValidKeys = pcall(function()
-    local raw = game:HttpGet("https://pastebin.com/raw/QyQRXjhM")
+-- ==================== VINCULACIÓN POR USER ID ====================
+local success, KeyToUserId = pcall(function()
+    local raw = game:HttpGet("https://pastebin.com/raw/QyQRXjhM", true)
     return loadstring(raw)()
 end)
 
-if not success or not ValidKeys or typeof(ValidKeys) ~= "table" then
-    game.Players.LocalPlayer:Kick("Error al cargar keys.")
+if not success or not KeyToUserId or typeof(KeyToUserId) ~= "table" then
+    game.Players.LocalPlayer:Kick("Error al cargar vinculaciones.")
     return
 end
 
-if not table.find(ValidKeys, localscriptkey) then
-    game.Players.LocalPlayer:Kick("Esta key es incorrecta.")
+local myUserId = game.Players.LocalPlayer.UserId
+
+-- Verificar vinculación
+if not KeyToUserId[localscriptkey] or KeyToUserId[localscriptkey] ~= myUserId then
+    game.Players.LocalPlayer:Kick("Esta key no está vinculada a tu cuenta de Roblox.")
     return
 end
 
--- ==================== SCRIPT PRINCIPAL ====================
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
@@ -34,7 +36,7 @@ local deletedObjects = {}
 local highlight = nil
 local deleteMode = false
 local antiAFKRunning = false
-local antiAFKTime = 0
+local antiAFKStartTime = 0
 
 -- ==================== GUI ====================
 local ScreenGui = Instance.new("ScreenGui")
@@ -44,27 +46,27 @@ ScreenGui.Parent = player:WaitForChild("PlayerGui")
 local Frame = Instance.new("Frame")
 Frame.Size = UDim2.new(0, 220, 0, 190)
 Frame.Position = UDim2.new(0.5, -110, 0.5, -95)
-Frame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+Frame.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
 Frame.Active = true
 Frame.Draggable = true
 Frame.Parent = ScreenGui
 
-Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 14)
+Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 16)
 
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, 0, 0, 35)
+Title.Size = UDim2.new(1, 0, 0, 45)
 Title.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
-Title.Text = "dw v1"
+Title.Text = "chikobeso DW"
 Title.TextColor3 = Color3.new(1,1,1)
 Title.TextScaled = true
 Title.Font = Enum.Font.GothamBold
 Title.Parent = Frame
-Instance.new("UICorner", Title).CornerRadius = UDim.new(0, 14)
+Instance.new("UICorner", Title).CornerRadius = UDim.new(0, 16)
 
 local DeleteBtn = Instance.new("TextButton")
-DeleteBtn.Size = UDim2.new(0.9, 0, 0, 38)
-DeleteBtn.Position = UDim2.new(0.05, 0, 0.23, 0)
-DeleteBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+DeleteBtn.Size = UDim2.new(0.88, 0, 0, 36)
+DeleteBtn.Position = UDim2.new(0.06, 0, 0.26, 0)
+DeleteBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
 DeleteBtn.Text = "Delete Walls: OFF"
 DeleteBtn.TextColor3 = Color3.new(1,1,1)
 DeleteBtn.TextScaled = true
@@ -73,9 +75,9 @@ DeleteBtn.Parent = Frame
 Instance.new("UICorner", DeleteBtn).CornerRadius = UDim.new(0, 10)
 
 local RestoreBtn = Instance.new("TextButton")
-RestoreBtn.Size = UDim2.new(0.9, 0, 0, 38)
-RestoreBtn.Position = UDim2.new(0.05, 0, 0.45, 0)
-RestoreBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+RestoreBtn.Size = UDim2.new(0.88, 0, 0, 36)
+RestoreBtn.Position = UDim2.new(0.06, 0, 0.445, 0)
+RestoreBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
 RestoreBtn.Text = "Restablecer (0)"
 RestoreBtn.TextColor3 = Color3.new(1,1,1)
 RestoreBtn.TextScaled = true
@@ -84,28 +86,28 @@ RestoreBtn.Parent = Frame
 Instance.new("UICorner", RestoreBtn).CornerRadius = UDim.new(0, 10)
 
 local AntiAFKBtn = Instance.new("TextButton")
-AntiAFKBtn.Size = UDim2.new(0.9, 0, 0, 42)
-AntiAFKBtn.Position = UDim2.new(0.05, 0, 0.67, 0)
-AntiAFKBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+AntiAFKBtn.Size = UDim2.new(0.88, 0, 0, 36)
+AntiAFKBtn.Position = UDim2.new(0.06, 0, 0.63, 0)
+AntiAFKBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
 AntiAFKBtn.Text = "Anti AFK: OFF"
 AntiAFKBtn.TextColor3 = Color3.new(1,1,1)
 AntiAFKBtn.TextScaled = true
-AntiAFKBtn.Font = Enum.Font.GothamBold
+AntiAFKBtn.Font = Enum.Font.GothamSemibold
 AntiAFKBtn.Parent = Frame
 Instance.new("UICorner", AntiAFKBtn).CornerRadius = UDim.new(0, 10)
 
--- ==================== ANTI AFK MEJORADO ====================
+-- ==================== ANTI AFK ====================
 local antiAFKConnection
 
 local function StartAntiAFK()
     antiAFKRunning = true
-    antiAFKTime = 0
+    antiAFKStartTime = tick()
     AntiAFKBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
 
     antiAFKConnection = RunService.Heartbeat:Connect(function()
-        antiAFKTime += 1
-        local min = math.floor(antiAFKTime / 60)
-        local sec = antiAFKTime % 60
+        local elapsed = tick() - antiAFKStartTime
+        local min = math.floor(elapsed / 60)
+        local sec = math.floor(elapsed % 60)
         AntiAFKBtn.Text = string.format("Anti AFK: %02d:%02d", min, sec)
     end)
 
@@ -113,16 +115,10 @@ local function StartAntiAFK()
         while antiAFKRunning do
             VirtualUser:CaptureController()
             VirtualUser:ClickButton2(Vector2.new())
-
             if player.Character and player.Character:FindFirstChild("Humanoid") then
                 local hum = player.Character.Humanoid
-                -- Movimiento más natural y discreto
-                hum:Move(Vector3.new(math.random(-1,1)*0.6, 0, math.random(-1,1)*0.6), true)
-                
-                -- Salto mucho menos frecuente
-                if math.random(1, 25) == 1 then
-                    hum.Jump = true
-                end
+                hum:Move(Vector3.new(math.random(-1,1)*0.5, 0, math.random(-1,1)*0.5), true)
+                if math.random(1,12) == 1 then hum.Jump = true end
             end
             task.wait(math.random(7, 14))
         end
@@ -133,7 +129,7 @@ local function StopAntiAFK()
     antiAFKRunning = false
     if antiAFKConnection then antiAFKConnection:Disconnect() end
     AntiAFKBtn.Text = "Anti AFK: OFF"
-    AntiAFKBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+    AntiAFKBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
 end
 
 -- ==================== DELETE WALLS ====================
@@ -196,10 +192,11 @@ mouse.Button1Down:Connect(function()
     end
 end)
 
+-- ==================== BOTONES ====================
 DeleteBtn.MouseButton1Click:Connect(function()
     deleteMode = not deleteMode
     DeleteBtn.Text = "Delete Walls: " .. (deleteMode and "ON" or "OFF")
-    DeleteBtn.BackgroundColor3 = deleteMode and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 55)
+    DeleteBtn.BackgroundColor3 = deleteMode and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(45, 45, 50)
 end)
 
 AntiAFKBtn.MouseButton1Click:Connect(function()
