@@ -1,22 +1,18 @@
--- // universal dw - Delete Walls
-
-if not localscriptkey then
+if not script_key then
     game.Players.LocalPlayer:Kick("Key incorrecta.")
     return
 end
 
--- ==================== KEYS ====================
 local success, ValidKeys = pcall(function()
     local raw = game:HttpGet("https://pastebin.com/raw/QyQRXjhM", true)
     return loadstring(raw)()
 end)
 
-if not success or not ValidKeys or typeof(ValidKeys) ~= "table" or not table.find(ValidKeys, localscriptkey) then
+if not success or not ValidKeys or typeof(ValidKeys) ~= "table" or not table.find(ValidKeys, script_key) then
     game.Players.LocalPlayer:Kick("Key incorrecta.")
     return
 end
 
--- ==================== SCRIPT PRINCIPAL ====================
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
@@ -28,7 +24,6 @@ local deletedObjects = {}
 local highlight = nil
 local deleteMode = false
 
--- ==================== GUI MINIMAL ====================
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = player:WaitForChild("PlayerGui")
@@ -74,7 +69,6 @@ RestoreBtn.Font = Enum.Font.GothamSemibold
 RestoreBtn.Parent = Frame
 Instance.new("UICorner", RestoreBtn).CornerRadius = UDim.new(0, 8)
 
--- ==================== DELETE WALLS ====================
 local function CanDelete(obj)
     if not obj or not obj.Parent then return false end
     if obj:IsA("Terrain") or obj.Name == "Baseplate" then return false end
