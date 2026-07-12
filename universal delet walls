@@ -1,23 +1,31 @@
--- // dw v1 - Minimal (Solo Delete Walls)
+-- // dw v1 - Chikobeso DW | Delete Walls + Anti AFK
 
 if not localscriptkey then
-    game.Players.LocalPlayer:Kick("Key incorrecta.")
+    game.Players.LocalPlayer:Kick("Esta key es incorrecta.")
     return
 end
 
+-- ==================== KEYS SIMPLES DESDE PASTEBIN ====================
 local success, ValidKeys = pcall(function()
     local raw = game:HttpGet("https://pastebin.com/raw/QyQRXjhM", true)
     return loadstring(raw)()
 end)
 
-if not success or not ValidKeys or typeof(ValidKeys) ~= "table" or not table.find(ValidKeys, localscriptkey) then
-    game.Players.LocalPlayer:Kick("Key incorrecta.")
+if not success or not ValidKeys or typeof(ValidKeys) ~= "table" then
+    game.Players.LocalPlayer:Kick("Error al cargar keys.")
     return
 end
 
+if not table.find(ValidKeys, localscriptkey) then
+    game.Players.LocalPlayer:Kick("Esta key es incorrecta.")
+    return
+end
+
+-- ==================== SCRIPT PRINCIPAL ====================
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
+local VirtualUser = game:GetService("VirtualUser")
 
 local player = Players.LocalPlayer
 local mouse = player:GetMouse()
@@ -25,59 +33,115 @@ local mouse = player:GetMouse()
 local deletedObjects = {}
 local highlight = nil
 local deleteMode = false
+local antiAFKRunning = false
+local antiAFKStartTime = 0
 
--- ==================== GUI MINIMALISTA ====================
+-- ==================== GUI ====================
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = player:WaitForChild("PlayerGui")
 
 local Frame = Instance.new("Frame")
-Frame.Size = UDim2.new(0, 200, 0, 120)
-Frame.Position = UDim2.new(0.5, -100, 0.5, -60)
-Frame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+Frame.Size = UDim2.new(0, 220, 0, 190)
+Frame.Position = UDim2.new(0.5, -110, 0.5, -95)
+Frame.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
 Frame.Active = true
 Frame.Draggable = true
 Frame.Parent = ScreenGui
 
-Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 12)
+Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 16)
 
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, 0, 0, 30)
+Title.Size = UDim2.new(1, 0, 0, 45)
 Title.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
 Title.Text = "chikobeso DW"
 Title.TextColor3 = Color3.new(1,1,1)
 Title.TextScaled = true
 Title.Font = Enum.Font.GothamBold
 Title.Parent = Frame
+Instance.new("UICorner", Title).CornerRadius = UDim.new(0, 16)
 
 local DeleteBtn = Instance.new("TextButton")
-DeleteBtn.Size = UDim2.new(0.9, 0, 0, 35)
-DeleteBtn.Position = UDim2.new(0.05, 0, 0.35, 0)
+DeleteBtn.Size = UDim2.new(0.88, 0, 0, 36)
+DeleteBtn.Position = UDim2.new(0.06, 0, 0.26, 0)
 DeleteBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
 DeleteBtn.Text = "Delete Walls: OFF"
 DeleteBtn.TextColor3 = Color3.new(1,1,1)
 DeleteBtn.TextScaled = true
 DeleteBtn.Font = Enum.Font.GothamSemibold
 DeleteBtn.Parent = Frame
-Instance.new("UICorner", DeleteBtn).CornerRadius = UDim.new(0, 8)
+Instance.new("UICorner", DeleteBtn).CornerRadius = UDim.new(0, 10)
 
 local RestoreBtn = Instance.new("TextButton")
-RestoreBtn.Size = UDim2.new(0.9, 0, 0, 35)
-RestoreBtn.Position = UDim2.new(0.05, 0, 0.68, 0)
+RestoreBtn.Size = UDim2.new(0.88, 0, 0, 36)
+RestoreBtn.Position = UDim2.new(0.06, 0, 0.445, 0)
 RestoreBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
 RestoreBtn.Text = "Restablecer (0)"
 RestoreBtn.TextColor3 = Color3.new(1,1,1)
 RestoreBtn.TextScaled = true
 RestoreBtn.Font = Enum.Font.GothamSemibold
 RestoreBtn.Parent = Frame
-Instance.new("UICorner", RestoreBtn).CornerRadius = UDim.new(0, 8)
+Instance.new("UICorner", RestoreBtn).CornerRadius = UDim.new(0, 10)
+
+local AntiAFKBtn = Instance.new("TextButton")
+AntiAFKBtn.Size = UDim2.new(0.88, 0, 0, 36)
+AntiAFKBtn.Position = UDim2.new(0.06, 0, 0.63, 0)
+AntiAFKBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+AntiAFKBtn.Text = "Anti AFK: OFF"
+AntiAFKBtn.TextColor3 = Color3.new(1,1,1)
+AntiAFKBtn.TextScaled = true
+AntiAFKBtn.Font = Enum.Font.GothamSemibold
+AntiAFKBtn.Parent = Frame
+Instance.new("UICorner", AntiAFKBtn).CornerRadius = UDim.new(0, 10)
+
+-- ==================== ANTI AFK ====================
+local antiAFKConnection
+
+local function StartAntiAFK()
+    antiAFKRunning = true
+    antiAFKStartTime = tick()
+    AntiAFKBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+
+    antiAFKConnection = RunService.Heartbeat:Connect(function()
+        local elapsed = tick() - antiAFKStartTime
+        local min = math.floor(elapsed / 60)
+        local sec = math.floor(elapsed % 60)
+        AntiAFKBtn.Text = string.format("Anti AFK: %02d:%02d", min, sec)
+    end)
+
+    spawn(function()
+        while antiAFKRunning do
+            VirtualUser:CaptureController()
+            VirtualUser:ClickButton2(Vector2.new())
+            if player.Character and player.Character:FindFirstChild("Humanoid") then
+                local hum = player.Character.Humanoid
+                hum:Move(Vector3.new(math.random(-1,1)*0.5, 0, math.random(-1,1)*0.5), true)
+                if math.random(1,12) == 1 then hum.Jump = true end
+            end
+            task.wait(math.random(7, 14))
+        end
+    end)
+end
+
+local function StopAntiAFK()
+    antiAFKRunning = false
+    if antiAFKConnection then antiAFKConnection:Disconnect() end
+    AntiAFKBtn.Text = "Anti AFK: OFF"
+    AntiAFKBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+end
 
 -- ==================== DELETE WALLS ====================
+local function SecureCall(func)
+    pcall(function() task.spawn(func) end)
+end
+
 local function CanDelete(obj)
     if not obj or not obj.Parent then return false end
-    if obj:IsA("Terrain") or obj.Name == "Baseplate" then return false end
-    if obj.Size.X > 200 and obj.Size.Z > 200 then return false end
-    if obj.Position.Y < -30 then return false end
+    if obj:IsA("Terrain") then return false end
+    if obj.Name == "Baseplate" then return false end
+    if obj.Size.X > 200 and obj.Size.Z > 200 and obj.Position.Y < 10 then return false end
+    if obj.Size.X > 300 and obj.Size.Z > 300 then return false end
+    if obj.Position.Y < -40 then return false end
 
     local char = obj:FindFirstAncestorWhichIsA("Model")
     if char and Players:GetPlayerFromCharacter(char) then return false end
@@ -85,14 +149,13 @@ local function CanDelete(obj)
     return obj:IsA("BasePart") or obj:IsA("MeshPart") or obj:IsA("UnionOperation")
 end
 
-local highlight = nil
 local function CreateHighlight()
     if highlight then highlight:Destroy() end
     highlight = Instance.new("SelectionBox")
     highlight.LineThickness = 0.05
     highlight.Color3 = Color3.fromRGB(255, 60, 60)
-    highlight.Transparency = 0.5
-    highlight.Parent = game.CoreGui
+    highlight.Transparency = 0.4
+    highlight.Parent = game:GetService("CoreGui")
 end
 
 RunService.RenderStepped:Connect(function()
@@ -115,13 +178,15 @@ mouse.Button1Down:Connect(function()
 
     local target = mouse.Target
     if target and CanDelete(target) then
-        table.insert(deletedObjects, {
-            object = target, parent = target.Parent, cframe = target.CFrame,
-            size = target.Size, color = target.Color, transparency = target.Transparency,
-            cancollide = target.CanCollide, anchored = target.Anchored
-        })
-        target.Parent = nil
-        RestoreBtn.Text = "Restablecer (" .. #deletedObjects .. ")"
+        SecureCall(function()
+            table.insert(deletedObjects, {
+                object = target, parent = target.Parent, cframe = target.CFrame,
+                size = target.Size, color = target.Color, transparency = target.Transparency,
+                cancollide = target.CanCollide, anchored = target.Anchored
+            })
+            target.Parent = nil
+            RestoreBtn.Text = "Restablecer (" .. #deletedObjects .. ")"
+        end)
     end
 end)
 
@@ -131,11 +196,19 @@ DeleteBtn.MouseButton1Click:Connect(function()
     DeleteBtn.BackgroundColor3 = deleteMode and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(45, 45, 50)
 end)
 
+AntiAFKBtn.MouseButton1Click:Connect(function()
+    if antiAFKRunning then
+        StopAntiAFK()
+    else
+        StartAntiAFK()
+    end
+end)
+
 RestoreBtn.MouseButton1Click:Connect(function()
     if #deletedObjects > 0 then
         local last = table.remove(deletedObjects)
         if last and last.object then
-            pcall(function()
+            SecureCall(function()
                 last.object.Parent = last.parent
                 last.object.CFrame = last.cframe
                 last.object.Size = last.size
